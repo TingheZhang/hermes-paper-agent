@@ -22,13 +22,8 @@
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
-```
-
-安装完成后重新加载 shell：
-
-```bash
 source ~/.bashrc  # 或 source ~/.zshrc
-hermes            # 启动对话
+hermes            # 启动
 ```
 
 详细说明：[Hermes 安装指南](https://hermes-agent.nousresearch.com/docs/getting-started/installation)
@@ -45,7 +40,7 @@ hermes gateway setup
 
 ---
 
-## 项目安装
+## 安装部署
 
 ### 克隆仓库
 
@@ -60,73 +55,44 @@ cd hermes-arxiv-agent
 pip install openpyxl requests pdfplumber
 ```
 
-### 网络代理（如需要）
+### 部署定时任务
 
-部分地区访问 arXiv 需要代理：
+**方式一：参考项目内的 skill.md**
 
-```bash
-export HTTP_PROXY=http://127.0.0.1:7890
-export HTTPS_PROXY=http://127.0.0.1:7890
+项目内已包含 [`SKILL.md`](./SKILL.md)，本项目就是一个 hermes skill，可直接参考其部署步骤。
+
+**方式二：直接使用 /cron add**
+
+在 hermes 对话中发送：
+
 ```
-
----
-
-## 核心功能：添加定时任务
-
-**使用 `/cron add` 添加每日自动任务，不是手动运行脚本。**
-
-```bash
-# 在 hermes 对话中发送：
 /cron add '0 9 * * *'
 ```
 
-然后粘贴 `cron_add_command.txt` 中的 prompt 内容作为任务描述。
+然后将 [`cronjob_prompt.txt`](./cronjob_prompt.txt) 中的全部内容粘贴作为 prompt。
 
-详细说明见 [`cron_add_command.txt`](./cron_add_command.txt)。
+> ⚠️ **首次使用时**：需要将 `cronjob_prompt.txt` 中所有的 `/path/to/hermes-arxiv-agent` 替换为你本机实际的项目路径。
 
-### 定时任务完整流程
-
-```
-┌─────────────────────────────────────────────┐
-│  hermes cronjob 每天 9:00 自动执行           │
-├─────────────────────────────────────────────┤
-│  1. 运行 monitor.py                         │
-│     - 调用 arXiv API 搜索论文                │
-│     - 自动去重（crawled_ids.txt + Excel）    │
-│     - 下载新论文 PDF                         │
-│     - 写入 papers_record.xlsx                │
-│     - 导出 viewer/papers_data.json           │
-│     - 输出 new_papers.json（供后续使用）     │
-│                                             │
-│  2. 判断是否有新论文                        │
-│     - 无新论文 → 直接推送"今日无新论文"     │
-│     - 有新论文 → 进入第 3 步                │
-│                                             │
-│  3. hermes 内置 LLM 完成信息补全            │
-│     - 从 PDF 提取作者单位 affiliations       │
-│     - 基于 abstract 生成中文摘要 summary_cn  │
-│     - 将结果回填到 Excel                    │
-│                                             │
-│  4. 生成飞书 Markdown 日报并推送            │
-└─────────────────────────────────────────────┘
-```
-
-### 查看定时任务
+### 定时任务工作流程
 
 ```
-/cron list
+每天 9:00
+    ↓
+运行 monitor.py（搜索 arXiv + 下载 PDF + 写 Excel + 导出 viewer JSON）
+    ↓
+判断是否有新论文
+    ↓ 有
+hermes LLM 读取 PDF → 提取作者单位 + 生成中文摘要 → 回填 Excel
+    ↓
+推送飞书 Markdown 日报
 ```
 
-### 测试定时任务
+### cronjob 相关命令
 
 ```
-/cron run <job_id>
-```
-
-### 删除定时任务
-
-```
-/cron remove <job_id>
+/cron list                    # 查看定时任务
+/cron run <job_id>            # 手动测试某个任务
+/cron remove <job_id>         # 删除某个任务
 ```
 
 ---
@@ -162,7 +128,9 @@ hermes-arxiv-agent/
 ├── extract_pdf_info.py        # 辅助 PDF 信息提取脚本
 ├── search_keywords.txt        # arXiv 搜索关键词（可自定义）
 ├── crawled_ids.txt            # 已抓取 arXiv ID（自动维护）
-├── cron_add_command.txt       # /cron add 任务 prompt 模板
+├── cronjob_prompt.txt         # cron 定时任务 prompt（部署时粘贴到 /cron add）
+├── cron_setup.sh              # 辅助安装脚本（可选）
+├── SKILL.md                  # hermes skill 说明（参考部署）
 └── viewer/
     ├── run_viewer.py          # 启动静态论文阅读网站
     ├── build_data.py          # 从 Excel 生成 papers_data.json
