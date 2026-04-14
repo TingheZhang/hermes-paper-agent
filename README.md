@@ -1,190 +1,236 @@
 # arXiv LLM Quantization Paper Monitor
 
-每天自动搜索 arXiv 上与 LLM 量化相关的新论文，下载 PDF、记录到 Excel、补全中文摘要与作者单位，并生成本地静态阅读站与飞书日报。
+每天自动从 arXiv 抓取 LLM 量化论文，用 AI 生成中文摘要和作者单位，推送到飞书，并提供本地静态论文阅读网站。全程无人值守，你只需要设置一次，之后每天 9 点自动收到论文日报。
 
-## 功能特性
+## 效果展示
 
-- 每天从 arXiv API 按关键词检索最新 LLM 量化论文
-- 自动去重，避免重复下载和重复写入 Excel
-- 自动下载论文 PDF 到本地 `papers/` 目录
-- 将论文元数据写入 `papers_record.xlsx`，便于长期积累和检索
-- 输出 `new_papers.json` 给 hermes cronjob agent，用内置 LLM 补全作者单位和中文摘要
-- 导出 `viewer/papers_data.json`，驱动本地静态论文阅读网站
-- 提供本地静态站点，支持浏览、筛选、收藏和查看论文信息
-- 支持飞书日报推送，适合做定时巡检和日报自动化
+### 飞书日报
 
-## 目录结构
+每天早上 9 点自动推送 Markdown 格式日报，包含：
 
-```text
-arxiv_llm_quantization_paper_monitor/
-├── monitor.py                 # 主脚本：搜索 arXiv、下载 PDF、写 Excel、导出 viewer JSON
-├── extract_affiliation.py     # 从 PDF 前几页提取作者单位（pdfplumber）
-├── extract_pdf_info.py        # 额外的 PDF 信息提取脚本（辅助调试/实验）
-├── search_keywords.txt        # arXiv 搜索关键词
-├── crawled_ids.txt            # 已抓取 arXiv ID，作为去重缓存
-├── new_papers.json            # 供 hermes cronjob agent 读取的中间结果
-├── papers_record.xlsx         # 论文主记录表
-├── papers_record.csv          # 本地导出/备份数据
-├── papers/                    # 下载后的 PDF 文件目录
-├── cron_add_command.txt       # hermes cronjob agent 的任务配置示例
-└── viewer/
-    ├── run_viewer.py          # 启动本地静态论文阅读站
-    ├── build_data.py          # 从 Excel 生成 papers_data.json
-    ├── papers_data.json       # 网站数据文件（建议保留版本管理）
-    ├── favorites.json         # 本地收藏列表
-    ├── index.html             # 前端页面
-    ├── app.js                 # 前端逻辑
-    ├── styles.css             # 前端样式
-    └── README.md              # viewer 子模块说明
-```
+- 📄 论文标题、作者、单位
+- 🔗 arXiv ID + PDF 直链
+- 📝 中文摘要（90-150 字，AI 生成）
 
-## 快速开始
+### 本地论文阅读网站
 
-### 1. Python 环境
+启动后浏览器访问 `http://localhost:8765`，支持：
 
-项目当前使用 hermes agent 自带 Python：
+- 📅 按日期筛选（今天 / 近 3 天 / 近 1 周 / 全部）
+- 🔍 关键词全文检索（标题 / 作者 / 单位 / 摘要）
+- ⭐ 收藏功能（服务端持久化）
+- 📖 Abstract 展开查看
+
+---
+
+## Hermes 介绍与安装
+
+**Hermes** 是本项目的核心依赖 —— 一个 AI coding agent，支持：
+
+- 🧠 **持久记忆**：记得你的偏好和项目上下文
+- 🔧 **工具调用**：读写文件、执行代码、操作服务
+- ⏰ **Cronjob**：定时任务，支持每天自动执行
+- 📨 **飞书集成**：自动推送消息到飞书
+- 🤖 **内置 LLM**：可直接完成中文摘要生成和单位提取
+
+### 安装 Hermes
 
 ```bash
-/home/wsg/.hermes/hermes-agent/venv/bin/python3
+pip install hermes-agent
 ```
 
-建议全程使用这个解释器，避免依赖装到错误环境里。
+### 配置飞书
 
-### 2. 安装依赖
+在 Hermes 中配置你的飞书 Bot（参考 [Feishu Integration](https://www.feishu.cn)），配置好 Bot 的 Chat ID，后续 cronjob 会自动向飞书推送日报。
+
+---
+
+## 项目安装与配置
+
+### 克隆仓库
 
 ```bash
-/home/wsg/.hermes/hermes-agent/venv/bin/python3 -m pip install openpyxl requests pdfplumber
+git clone https://github.com/genggng/arxiv_llm_quantization_paper_monitor.git
+cd arxiv_llm_quantization_paper_monitor
 ```
 
-### 3. 配置搜索关键词
+### 安装依赖
 
-编辑根目录下的 `search_keywords.txt`，填入 arXiv API 的 `search_query` 语法，例如：
+```bash
+# 如果使用 hermes 内置的 Python 环境
+/home/wsg/.hermes/hermes-agent/venv/bin/pip install openpyxl requests pdfplumber
 
-```text
-all:quantization+AND+all:large+AND+all:language+AND+all:model
+# 或者系统 Python
+pip install openpyxl requests pdfplumber
 ```
 
-如果文件为空，`monitor.py` 会回退到默认关键词。
+### 网络代理（如需要）
 
-### 4. 代理配置
-
-如果本机访问 arXiv 或下载 PDF 不稳定，先配置代理：
+部分地区访问 arXiv 或 GitHub 需要代理：
 
 ```bash
 export HTTP_PROXY=http://127.0.0.1:7890
 export HTTPS_PROXY=http://127.0.0.1:7890
 ```
 
-项目脚本默认通过 `requests` 访问网络，若环境变量已设置，会自动沿用。
+### 配置 hermes skill
 
-### 5. 运行主流程
-
-```bash
-/home/wsg/.hermes/hermes-agent/venv/bin/python3 /home/wsg/hermes_path/arxiv_llm_quantization_paper_monitor/monitor.py
-```
-
-运行后会完成以下步骤：
-
-1. 从 arXiv 检索最新论文
-2. 根据 `crawled_ids.txt` 和 `papers_record.xlsx` 去重
-3. 下载新论文 PDF 到 `papers/`
-4. 将基础信息写入 `papers_record.xlsx`
-5. 导出 `viewer/papers_data.json`
-6. 输出 `new_papers.json`，等待 hermes cronjob agent 用 LLM 补全 `affiliations` 和 `summary_cn`
-
-如果当天没有新论文，脚本也会生成“无新论文”的结果 JSON，方便后续自动推送。
-
-## 静态网站使用说明
-
-### 启动命令
-
-在 `viewer/` 目录中启动：
+将本项目注册为 hermes 的 skill，这样 hermes agent 能找到相关文件路径和工具脚本：
 
 ```bash
-cd /home/wsg/hermes_path/arxiv_llm_quantization_paper_monitor/viewer
-/home/wsg/.hermes/hermes-agent/venv/bin/python3 run_viewer.py
+# 假设 hermes skill 目录在 ~/.hermes/skills/
+# 将本项目复制为 hermes skill
+cp -r arxiv_llm_quantization_paper_monitor ~/.hermes/skills/
 ```
 
-默认监听：
+---
 
-- 本机地址：`http://127.0.0.1:8765`
-- 局域网地址：脚本启动时会自动打印
+## 核心功能：添加定时任务（/cron add）
 
-如果端口冲突，可改端口：
+**这是本项目的正确使用方式，不是手动运行 Python 脚本。**
+
+在 hermes 对话中发送：
+
+```
+/cron add
+```
+
+然后按提示配置，任务内容如下：
+
+### 定时任务完整流程
+
+```
+┌─────────────────────────────────────────────┐
+│  hermes cronjob 每天 9:00 自动执行           │
+├─────────────────────────────────────────────┤
+│                                             │
+│  1. 运行 monitor.py                         │
+│     - 调用 arXiv API 搜索 LLM 量化论文       │
+│     - 自动去重（crawled_ids.txt + Excel）    │
+│     - 下载新论文 PDF                         │
+│     - 写入 papers_record.xlsx                │
+│     - 导出 viewer/papers_data.json           │
+│     - 输出 new_papers.json（供后续使用）     │
+│                                             │
+│  2. 判断是否有新论文                        │
+│     - 无新论文 → 直接推送"今日无新论文"     │
+│     - 有新论文 → 进入第 3 步                │
+│                                             │
+│  3. hermes 内置 LLM 完成信息补全            │
+│     - 从 PDF 提取作者单位 affiliations       │
+│     - 基于 abstract 生成中文摘要 summary_cn  │
+│     - 将结果回填到 Excel                    │
+│                                             │
+│  4. 生成飞书 Markdown 日报并推送            │
+│     - 标题 / 作者 / 单位 / PDF 链接          │
+│     - 90-150 字中文摘要                     │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
+### 查看定时任务
+
+```
+/cron list
+```
+
+### 删除定时任务
+
+```
+/cron remove <job_id>
+```
+
+---
+
+## 手动测试命令（可选）
+
+用于调试，不影响定时任务的正常运行：
 
 ```bash
-/home/wsg/.hermes/hermes-agent/venv/bin/python3 run_viewer.py --port 8766
-```
-
-### 网站功能
-
-- 启动时自动执行 `build_data.py`，从 `papers_record.xlsx` 重建 `viewer/papers_data.json`
-- 在浏览器中查看论文标题、作者、单位、摘要、分类和日期
-- 通过本地静态页面快速筛选和阅读已抓取论文
-- 支持收藏功能，收藏信息保存在 `viewer/favorites.json`
-- 所有网站数据来自本地 Excel，不依赖额外后端服务
-
-如果只想单独重建网站数据，也可以执行：
-
-```bash
-cd /home/wsg/hermes_path/arxiv_llm_quantization_paper_monitor/viewer
-/home/wsg/.hermes/hermes-agent/venv/bin/python3 build_data.py
-```
-
-## Cronjob 配置说明
-
-### 定时任务
-
-项目已经提供了 `cron_add_command.txt`，其中包含适配 hermes cronjob agent 的任务描述。当前示例计划为：
-
-```cron
-0 9 * * *
-```
-
-表示每天 `09:00` 执行一次。
-
-建议 cron 流程如下：
-
-1. 调用 `monitor.py` 抓取新论文并输出 `new_papers.json`
-2. 若脚本输出 `No new papers` 或 `new_count=0`，直接生成“今日无新论文”消息
-3. 若有新论文，调用 hermes cronjob agent 读取 `new_papers.json`
-4. 用内置 LLM 完成两项补全：
-   - 从 PDF 提取作者单位 `affiliations`
-   - 基于 abstract 生成中文摘要 `summary_cn`
-5. 用 `openpyxl` 回填 `papers_record.xlsx`
-6. 生成飞书 Markdown 日报并推送
-
-### 飞书推送
-
-飞书消息建议包含以下信息：
-
-- 标题：`LLM 量化论文日报`
-- 日期
-- 新论文数量
-- 每篇论文的标题、arXiv ID、发布日期、作者、单位、PDF 链接、中文摘要
-- 本地文件落盘说明，例如 PDF 目录和 Excel 记录路径
-
-具体推送动作由 hermes cronjob agent 或你的飞书 webhook 流程负责，本仓库主要负责生成结构化输入和本地数据文件。
-
-## 复现注意事项
-
-- 优先使用固定 Python 路径：`/home/wsg/.hermes/hermes-agent/venv/bin/python3`
-- 若网络受限，请在运行前设置代理：`http://127.0.0.1:7890`
-- `papers/` 目录体积可能很大，默认不建议提交到 Git
-- `papers_record.xlsx` 和 `new_papers.json` 都是运行过程中的本地数据文件，适合作为状态文件使用
-- `viewer/papers_data.json` 是静态站点依赖的数据文件，建议保留版本管理，便于直接打开 viewer
-- 第一次运行前请确认 `search_keywords.txt` 已正确配置，否则检索结果可能为空或偏离主题
-
-## 常用命令
-
-```bash
-# 运行每日抓取
-/home/wsg/.hermes/hermes-agent/venv/bin/python3 /home/wsg/hermes_path/arxiv_llm_quantization_paper_monitor/monitor.py
+# 运行 monitor.py（Python 搜索脚本）
+python3 monitor.py
 
 # 提取单篇论文作者单位
-/home/wsg/.hermes/hermes-agent/venv/bin/python3 /home/wsg/hermes_path/arxiv_llm_quantization_paper_monitor/extract_affiliation.py 2604.07955
+python3 extract_affiliation.py <arxiv_id>
 
-# 启动本地 viewer
-cd /home/wsg/hermes_path/arxiv_llm_quantization_paper_monitor/viewer
-/home/wsg/.hermes/hermes-agent/venv/bin/python3 run_viewer.py
+# 启动本地论文阅读网站
+cd viewer && python3 run_viewer.py
 ```
+
+---
+
+## 本地论文阅读网站
+
+### 启动
+
+```bash
+cd viewer
+python3 run_viewer.py
+```
+
+启动后访问：`http://localhost:8765`
+
+### 功能
+
+| 功能 | 说明 |
+|------|------|
+| 日期筛选 | 快捷按钮：今天 / 近 3 天 / 近 1 周 / 全部 |
+| 关键词搜索 | 标题 / 作者 / 单位 / 摘要全文检索 |
+| 收藏 | 点击 ⭐ 收藏，保存到 `viewer/favorites.json`（服务端持久化） |
+| 展开 Abstract | 点击论文标题展开英文摘要 |
+
+---
+
+## 目录结构
+
+```
+arxiv_llm_quantization_paper_monitor/
+├── monitor.py                 # 主脚本：搜索 arXiv + 下载 PDF + 写 Excel + 导出 viewer JSON
+├── extract_affiliation.py     # 从 PDF 提取作者单位（pdfplumber，含 CamelCase 分词）
+├── extract_pdf_info.py        # 辅助 PDF 信息提取脚本
+├── search_keywords.txt        # arXiv 搜索关键词（可自定义）
+├── crawled_ids.txt            # 已抓取 arXiv ID（自动维护）
+├── cron_add_command.txt       # cronjob 任务配置模板
+├── papers_record.xlsx         # 论文主记录 Excel（本地生成，不上传 Git）
+├── new_papers.json            # 中间 JSON（供 hermes LLM 读取，本地生成）
+└── viewer/
+    ├── run_viewer.py          # 启动静态论文阅读网站
+    ├── build_data.py          # 从 Excel 生成 papers_data.json
+    ├── index.html             # 前端页面
+    ├── app.js                 # 前端逻辑（筛选 / 搜索 / 收藏）
+    ├── styles.css             # 样式
+    ├── papers_data.json       # 网站数据（由 build_data.py 生成）
+    ├── favorites.json         # 收藏记录（服务端持久化）
+    └── README.md              # viewer 子模块说明
+```
+
+---
+
+## 技术细节
+
+### 作者单位提取（extract_affiliation.py）
+
+- 使用 `pdfplumber` 提取 PDF 前 2 页带坐标的词列表
+- 自动检测双栏布局（找最大 x 间隙分离左右栏）
+- 对 CamelCase 连写词做分词还原（如 `DepartmentofPoliticalSciences` → `Department of Political Sciences`）
+- 合并跨行连字符词（如 `Repub-` + `licof Korea` → `Republic of Korea`）
+- 全词边界匹配机构关键词，不过度匹配子串
+
+### 中文摘要生成
+
+- 由 hermes 内置 LLM 基于论文英文 abstract 生成
+- 字数要求：90-150 个中文字符
+- 覆盖内容：方法核心、主要贡献、关键结果
+- 禁止模板化泛化句，必须基于论文内容
+
+### 查重机制
+
+- `crawled_ids.txt`：每行一个 arXiv ID（无版本号）
+- `papers_record.xlsx`：`arxiv_id` 列行级完整记录
+- arXiv ID 版本剥离：`2604.11080v1` → `2604.11080`
+
+### 静态网站数据
+
+- 由 `monitor.py` 每次运行后自动导出 `viewer/papers_data.json`
+- 或手动运行 `viewer/build_data.py` 单独构建
+- `run_viewer.py` 启动时自动执行一次 `build_data.py`
