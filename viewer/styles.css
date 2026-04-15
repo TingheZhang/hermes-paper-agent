@@ -120,6 +120,8 @@ select,
   border-radius: 10px;
   padding: 10px 12px;
   font: inherit;
+  width: 100%;
+  min-width: 0;
 }
 
 .search-field {
@@ -151,6 +153,7 @@ select,
 .quick-range .btn {
   padding: 8px 12px;
   font-size: 13px;
+  width: auto;
 }
 
 .favorite-only-field {
@@ -179,6 +182,10 @@ select,
   gap: 8px;
   align-items: end;
   grid-row: 1;
+}
+
+.actions .btn {
+  width: auto;
 }
 
 .btn {
@@ -321,6 +328,10 @@ summary {
 }
 
 @media (max-width: 900px) {
+  .container {
+    padding: 16px;
+  }
+
   .filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -342,17 +353,43 @@ summary {
   .actions {
     grid-column: span 2;
   }
+
+  .actions {
+    justify-content: stretch;
+  }
+
+  .actions .btn {
+    flex: 1 1 0;
+  }
 }
 
 @media (max-width: 640px) {
+  .brand {
+    padding: 14px 16px;
+    align-items: flex-start;
+  }
+
   h1 {
     font-size: 20px;
   }
 
-  .filters {
-    grid-template-columns: 1fr;
+  .brand p {
+    font-size: 12px;
+    line-height: 1.5;
   }
 
+  .container {
+    padding: 12px;
+  }
+
+  .filters {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  .date-mode-field,
+  .start-date-field,
+  .end-date-field,
   .search-field,
   .quick-range-field,
   .favorite-only-field,
@@ -360,7 +397,48 @@ summary {
     grid-column: span 1;
   }
 
+  .quick-range {
+    gap: 6px;
+  }
+
+  .quick-range .btn {
+    flex: 1 1 calc(50% - 6px);
+    text-align: center;
+  }
+
+  .switch-label {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions .btn {
+    width: 100%;
+  }
+
   .cards {
     grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: 12px;
+  }
+
+  .card-head {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .title {
+    width: 100%;
+    order: 3;
+  }
+
+  .favorite-btn {
+    margin-left: 0;
   }
 }
