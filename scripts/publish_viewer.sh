@@ -22,6 +22,12 @@ if [[ ! -f viewer/papers_data.json ]]; then
   exit 1
 fi
 
+if [[ -f pending_llm_ids.txt ]] && [[ -s pending_llm_ids.txt ]]; then
+  echo "[ERROR] pending_llm_ids.txt is not empty. Refusing to publish incomplete viewer data." >&2
+  echo "[HINT] Finish the LLM补全流程, then run python3 viewer/build_data.py and python3 monitor.py --sync-pending-state before publishing." >&2
+  exit 1
+fi
+
 changed_paths=()
 for path in viewer/papers_data.json viewer/index.html viewer/app.js viewer/styles.css; do
   if [[ -n "$(git status --porcelain -- "$path")" ]]; then

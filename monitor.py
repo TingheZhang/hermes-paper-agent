@@ -531,7 +531,6 @@ def main():
         for paper in downloaded:
             upsert_to_excel(ws, header_index, row_index, paper)
         save_excel(wb)
-        export_viewer_json_from_excel()
 
         # 批量写入 crawled_ids
         save_crawled_ids_batch([p["arxiv_id"] for p in downloaded])
