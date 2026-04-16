@@ -24,6 +24,7 @@ Leave the user with:
 2. a freshly generated `cronjob_prompt.generated.txt` pointing to the real local path
 3. a Hermes cron job whose prompt matches that generated file
 4. delivery set to `feishu` rather than `local`
+5. the repository `origin` remote using SSH so future publish steps can push non-interactively
 
 ## Required Workflow
 
@@ -49,6 +50,12 @@ bash prepare_deploy.sh
 This must regenerate `cronjob_prompt.generated.txt` from the tracked `cronjob_prompt.txt` template.
 
 Do not hand-edit the generated prompt.
+
+If the repository `origin` still points to the canonical HTTPS URL, switch it to:
+
+```bash
+git remote set-url origin git@github.com:genggng/hermes-arxiv-agent.git
+```
 
 ### 3. Validate the generated prompt
 
@@ -85,6 +92,7 @@ Confirm all of the following:
 - the active job uses the latest generated prompt
 - delivery is set to `feishu`
 - the prompt now contains the GitHub Pages publish step
+- the repository `origin` uses `git@github.com:genggng/hermes-arxiv-agent.git`
 
 ## Behavior Rules
 
@@ -95,6 +103,7 @@ Confirm all of the following:
 - Keep the local checkout path exactly as found.
 - If the cron system cannot edit jobs in place, replace the old one cleanly rather than leaving duplicates.
 - Treat `cronjob_prompt.txt` as the template source of truth and `cronjob_prompt.generated.txt` as the deployable cron payload.
+- Prefer an SSH Git remote for this repository so scheduled publishing does not depend on HTTPS credentials.
 
 ## Suggested User-Facing Outcome
 

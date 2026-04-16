@@ -25,7 +25,7 @@ Do not assume the current local folder name matches the remote repository name. 
 Bring the user to a working state where:
 
 1. Feishu/Lark gateway is configured.
-2. The repo `https://github.com/genggng/hermes-arxiv-agent.git` is cloned locally.
+2. The repo `git@github.com:genggng/hermes-arxiv-agent.git` is cloned locally with an SSH remote.
 3. Python dependencies are installed.
 4. `cronjob_prompt.generated.txt` exists and points to the real local project directory.
 5. A Hermes cron job exists, points to the real local project directory, and delivers back to the Feishu/Lark chat instead of `local`.
@@ -43,6 +43,7 @@ Check:
 
 - Python 3 is available
 - `pip` or `pip3` is available
+- GitHub SSH authentication is available for `git@github.com`
 
 If Feishu/Lark is not configured, direct the user to run:
 
@@ -60,11 +61,17 @@ When creating or repairing the cron job, ensure its delivery is set to `feishu` 
 Preferred default:
 
 ```bash
-git clone https://github.com/genggng/hermes-arxiv-agent.git
+git clone git@github.com:genggng/hermes-arxiv-agent.git
 cd hermes-arxiv-agent
 ```
 
 If the repository already exists locally, reuse it instead of recloning.
+
+If the existing repository uses an HTTPS `origin`, change it to:
+
+```bash
+git remote set-url origin git@github.com:genggng/hermes-arxiv-agent.git
+```
 
 The effective project directory must be captured as an absolute path and reused in later steps. Refer to it as `PROJECT_DIR`.
 
@@ -103,6 +110,7 @@ The script is responsible for:
 - generating `cronjob_prompt.generated.txt` with placeholder paths replaced
 - removing the human-only path reminder from `cronjob_prompt.generated.txt`
 - keeping the cron prompt aligned with the requirement to rebuild `viewer/papers_data.json` after Excel is updated
+- normalizing the repository `origin` remote to SSH when it still points at the canonical HTTPS URL
 
 If the user wants manual override, run:
 
@@ -171,6 +179,7 @@ After creation, confirm:
 - Treat `/cron add` and `/cron list` as Hermes chat commands, not shell commands.
 - Treat Feishu/Lark delivery as required for this project; set the cron delivery target to `feishu` and do not leave the job on `local`.
 - Keep repository code path handling relative; do not reintroduce machine-specific absolute paths into tracked files.
+- Prefer an SSH Git remote for this repository so scheduled publishing can push without HTTPS credential prompts.
 
 ## Path Handling Guidance
 

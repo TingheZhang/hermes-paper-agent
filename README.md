@@ -17,6 +17,14 @@ Hermes 会按 skill 自动完成：
 - 生成定时任务 prompt
 - 创建定时任务
 
+推荐让仓库 `origin` 使用 SSH：
+
+```text
+git@github.com:genggng/hermes-arxiv-agent.git
+```
+
+这样每日自动发布 GitHub Pages 时不会依赖 HTTPS token 或图形化凭证管理器。
+
 ## 效果展示
 
 ### 飞书推送
@@ -54,6 +62,12 @@ hermes
 hermes gateway setup
 ```
 
+GitHub 推送认证建议使用 SSH key。如果当前仓库 remote 还是 HTTPS，可以切换为：
+
+```bash
+git remote set-url origin git@github.com:genggng/hermes-arxiv-agent.git
+```
+
 ## 定时任务说明
 
 定时任务相关逻辑以 [AGENT_SKILL.md](AGENT_SKILL.md) 和 [cronjob_prompt.txt](cronjob_prompt.txt) 为准。
@@ -69,6 +83,8 @@ hermes gateway setup
 ```
 
 这个流程会复用当前本地仓库和现有数据，只更新定时任务配置，适合在仓库逻辑变更后同步 cron。
+
+如果现有仓库最早是用 HTTPS clone 的，也建议在更新 cron 前把 `origin` 改成 SSH，避免后续定时发布时出现凭证问题。
 
 ## 关键词默认配置
 

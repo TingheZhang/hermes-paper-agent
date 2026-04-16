@@ -3,6 +3,8 @@ set -euo pipefail
 
 # Override this if needed. When left unchanged, the script uses its own location.
 PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "$0")" && pwd)}"
+EXPECTED_HTTPS_REMOTE="https://github.com/genggng/hermes-arxiv-agent.git"
+EXPECTED_SSH_REMOTE="git@github.com:genggng/hermes-arxiv-agent.git"
 
 if [[ ! -d "$PROJECT_DIR" ]]; then
   echo "ERROR: PROJECT_DIR does not exist: $PROJECT_DIR" >&2
@@ -12,6 +14,15 @@ fi
 if [[ ! -f "$PROJECT_DIR/monitor.py" ]]; then
   echo "ERROR: monitor.py not found under PROJECT_DIR: $PROJECT_DIR" >&2
   exit 1
+fi
+
+if [[ -d "$PROJECT_DIR/.git" ]]; then
+  current_remote="$(git -C "$PROJECT_DIR" remote get-url origin 2>/dev/null || true)"
+  if [[ "$current_remote" == "$EXPECTED_HTTPS_REMOTE" || "$current_remote" == "https://github.com/genggng/hermes-arxiv-agent" ]]; then
+    git -C "$PROJECT_DIR" remote set-url origin "$EXPECTED_SSH_REMOTE"
+    echo "Updated git remote:"
+    echo "- origin => $EXPECTED_SSH_REMOTE"
+  fi
 fi
 
 export PROJECT_DIR

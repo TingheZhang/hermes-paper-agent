@@ -5,12 +5,20 @@ PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 DATE_TAG="${DATE_TAG:-$(date +%F)}"
 PUSH_MAX_ATTEMPTS="${PUSH_MAX_ATTEMPTS:-5}"
 PUSH_RETRY_DELAY="${PUSH_RETRY_DELAY:-10}"
+EXPECTED_HTTPS_REMOTE="https://github.com/genggng/hermes-arxiv-agent.git"
+EXPECTED_SSH_REMOTE="git@github.com:genggng/hermes-arxiv-agent.git"
 
 cd "$PROJECT_DIR"
 
 if [[ ! -d .git ]]; then
   echo "[ERROR] Not a git repository: $PROJECT_DIR" >&2
   exit 1
+fi
+
+current_remote="$(git remote get-url origin 2>/dev/null || true)"
+if [[ "$current_remote" == "$EXPECTED_HTTPS_REMOTE" || "$current_remote" == "https://github.com/genggng/hermes-arxiv-agent" ]]; then
+  git remote set-url origin "$EXPECTED_SSH_REMOTE"
+  echo "[INFO] Updated origin remote to SSH: ${EXPECTED_SSH_REMOTE}"
 fi
 
 BRANCH="${BRANCH:-$(git branch --show-current)}"
